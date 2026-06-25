@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebIntel-Agent</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app">
+    <!-- 导航栏 -->
+    <nav class="nav">
+      <div class="nav-brand">
+        <span class="nav-logo">&#9672;</span>
+        <span class="nav-title">WebIntel</span>
+      </div>
+      <div class="nav-actions">
+        <button id="settingsToggle" class="nav-btn" title="设置">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
+        <button id="historyToggle" class="nav-btn" title="历史记录">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </button>
+        <div id="llmStatus" class="llm-badge" title="LLM 状态">
+          <span class="llm-dot"></span>
+          <span class="llm-text">检查中...</span>
+        </div>
+      </div>
+    </nav>
+
+    <!-- 主内容区 -->
+    <main class="main">
+      <!-- Hero 区域 -->
+      <section class="hero">
+        <h1 class="hero-title">行业情报，<span class="gradient-text">一键洞察</span></h1>
+        <p class="hero-sub">输入任意网址，AI 自动抓取、解析、提取结构化情报</p>
+      </section>
+
+      <!-- 输入区 -->
+      <section class="input-section">
+        <form id="analyzeForm" class="analyze-form">
+          <div class="input-wrapper">
+            <div class="input-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+            </div>
+            <input
+              type="text"
+              id="urlInput"
+              class="url-input"
+              placeholder="输入目标网址，例如 https://openai.com"
+              required
+              autocomplete="url"
+            >
+            <button type="submit" id="submitBtn" class="submit-btn">
+              <span class="btn-text">分析</span>
+              <span class="btn-loading" hidden>
+                <span class="spinner"></span>
+              </span>
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- 错误提示 -->
+      <div id="errorMsg" class="error-msg" hidden></div>
+
+      <!-- Loading 动画 -->
+      <section id="loadingSection" class="loading-section" hidden>
+        <div class="loading-card">
+          <div class="loading-bar">
+            <div class="loading-bar-fill"></div>
+          </div>
+          <div class="loading-steps">
+            <div class="loading-step active" id="step1">
+              <span class="step-dot"></span>
+              <span>正在抓取网页内容...</span>
+            </div>
+            <div class="loading-step" id="step2">
+              <span class="step-dot"></span>
+              <span>AI 情报分析中...</span>
+            </div>
+            <div class="loading-step" id="step3">
+              <span class="step-dot"></span>
+              <span>生成结构化报告...</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 结果展示区 -->
+      <section id="resultSection" class="result-section" hidden>
+        <!-- 元信息 -->
+        <div class="result-meta">
+          <div class="meta-left">
+            <h2 class="result-title" id="resultTitle"></h2>
+            <a id="resultUrl" class="result-url" href="#" target="_blank" rel="noopener"></a>
+          </div>
+          <div class="meta-right">
+            <span class="page-type-badge" id="pageType"></span>
+            <span class="content-length" id="contentLength"></span>
+          </div>
+        </div>
+
+        <!-- 卡片网格 -->
+        <div class="card-grid">
+          <!-- 摘要卡片 -->
+          <div class="card card-summary">
+            <div class="card-header">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+              </svg>
+              <span>内容摘要</span>
+            </div>
+            <p class="card-body" id="resultSummary"></p>
+          </div>
+
+          <!-- 情感分析卡片 -->
+          <div class="card card-sentiment">
+            <div class="card-header">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+              </svg>
+              <span>情感分析</span>
+            </div>
+            <div class="card-body sentiment-body">
+              <div class="sentiment-gauge">
+                <div class="gauge-track">
+                  <div class="gauge-fill" id="gaugeFill"></div>
+                  <div class="gauge-indicator" id="gaugeIndicator"></div>
+                </div>
+                <div class="gauge-labels">
+                  <span>消极</span>
+                  <span>中性</span>
+                  <span>积极</span>
+                </div>
+              </div>
+              <div class="sentiment-score" id="sentimentScore"></div>
+            </div>
+          </div>
+
+          <!-- 关键观点卡片 -->
+          <div class="card card-insights">
+            <div class="card-header">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/>
+                <line x1="12" y1="8" x2="12.01" y2="8"/>
+              </svg>
+              <span>关键观点</span>
+            </div>
+            <div class="card-body" id="resultInsights"></div>
+          </div>
+
+          <!-- 技术栈卡片 -->
+          <div class="card card-tech">
+            <div class="card-header">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+              </svg>
+              <span>技术栈识别</span>
+            </div>
+            <div class="card-body" id="resultTech"></div>
+          </div>
+
+          <!-- 关键词卡片 -->
+          <div class="card card-keywords">
+            <div class="card-header">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+                <line x1="7" y1="7" x2="7.01" y2="7"/>
+              </svg>
+              <span>核心关键词</span>
+            </div>
+            <div class="card-body keywords-body" id="resultKeywords"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- 历史记录面板 -->
+    <aside id="historyPanel" class="history-panel">
+      <div class="history-header">
+        <h3>分析历史</h3>
+        <div class="history-actions">
+          <button id="clearHistory" class="history-clear-btn" title="清空历史">清空</button>
+          <button id="closeHistory" class="history-close-btn">&times;</button>
+        </div>
+      </div>
+      <div id="historyList" class="history-list">
+        <p class="history-empty">暂无历史记录</p>
+      </div>
+    </aside>
+    <div id="historyOverlay" class="history-overlay" hidden></div>
+
+    <!-- 设置面板 -->
+    <aside id="settingsPanel" class="settings-panel">
+      <div class="settings-header">
+        <h3>API 设置</h3>
+        <button id="closeSettings" class="history-close-btn">&times;</button>
+      </div>
+      <div class="settings-body">
+        <div class="setting-group">
+          <label class="setting-label">LLM 提供商</label>
+          <select id="settingProvider" class="setting-select">
+            <option value="deepseek">DeepSeek（推荐）</option>
+            <option value="openai">OpenAI</option>
+          </select>
+        </div>
+        <div class="setting-group">
+          <label class="setting-label">API Key</label>
+          <div class="setting-input-row">
+            <input id="settingApiKey" type="password" class="setting-input" placeholder="sk-...">
+            <button id="toggleKeyVisibility" class="setting-eye-btn" title="显示/隐藏">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
+          </div>
+          <div id="apiKeyStatus" class="setting-status">未配置</div>
+        </div>
+        <div class="setting-group">
+          <label class="setting-label">API 地址</label>
+          <input id="settingBaseUrl" type="text" class="setting-input" placeholder="https://api.deepseek.com">
+        </div>
+        <div class="setting-group">
+          <label class="setting-label">模型名称</label>
+          <input id="settingModel" type="text" class="setting-input" placeholder="deepseek-chat">
+        </div>
+        <div class="setting-presets">
+          <span class="preset-label">快捷预设：</span>
+          <button class="preset-btn" data-provider="deepseek" data-url="https://api.deepseek.com" data-model="deepseek-chat">DeepSeek</button>
+          <button class="preset-btn" data-provider="openai" data-url="https://api.openai.com/v1" data-model="gpt-4o-mini">OpenAI</button>
+        </div>
+        <button id="saveSettings" class="save-btn">保存配置</button>
+        <div id="settingsMsg" class="settings-msg" hidden></div>
+      </div>
+    </aside>
+    <div id="settingsOverlay" class="history-overlay" hidden></div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
