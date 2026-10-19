@@ -22,6 +22,8 @@
   const closeHistory = $("#closeHistory");
   const clearHistoryBtn = $("#clearHistory");
   const llmStatus = $("#llmStatus");
+  const jobsList = $("#jobsList");
+  const jobsCount = $("#jobsCount");
 
   // ====== Health Check ======
   async function checkHealth() {
@@ -176,13 +178,11 @@
     showLoading();
 
     try {
-      const res = await fetch("/api/analyze", {
+      const res = await fetch("/api/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),
       });
-
-      hideLoading();
 
       if (!res.ok) {
         let detail = "请求失败";
@@ -190,14 +190,79 @@
         throw new Error(detail);
       }
 
-      const data = await res.json();
-      renderResult(data);
+      const job = await res.json();
+      loadJobs();
+      const completed = await waitForJob(job.id);
+      hideLoading();
+      renderResult(completed.result);
       loadHistory();
     } catch (err) {
       showError(err.message || "分析失败，请稍后重试");
     } finally {
       setLoading(false);
     }
+  }
+
+  async function waitForJob(jobId) {
+    const deadline = Date.now() + 120000;
+    while (Date.now() < deadline) {
+      const response = await fetch("/api/jobs/" + encodeURIComponent(jobId));
+      if (!response.ok) throw new Error("无法读取任务状态");
+      const job = await response.json();
+      renderJobs([job], true);
+      if (job.status === "completed" && job.result) return job;
+      if (job.status === "failed") throw new Error(job.error || "分析任务失败");
+      await new Promise((resolve) => setTimeout(resolve, 700));
+    }
+    throw new Error("分析任务超时，请在任务列表中查看状态");
+  }
+
+  async function loadJobs() {
+    try {
+      const response = await fetch("/api/jobs?limit=8");
+      const data = await response.json();
+      renderJobs(data.jobs || []);
+    } catch (_) {}
+  }
+
+  function renderJobs(items, preserveExisting) {
+    if (preserveExisting && items.length === 1) {
+      const current = jobsList.querySelector('[data-job-id="' + items[0].id + '"]');
+      if (current) {
+        current.replaceWith(createJobElement(items[0]));
+        return;
+      }
+      jobsList.prepend(createJobElement(items[0]));
+      jobsCount.textContent = jobsList.querySelectorAll(".job-row").length + " 项";
+      return;
+    }
+    jobsList.innerHTML = "";
+    jobsCount.textContent = items.length + " 项";
+    if (!items.length) {
+      jobsList.innerHTML = '<p class="jobs-empty">提交网址后，任务状态会保存在本机。</p>';
+      return;
+    }
+    items.forEach((job) => jobsList.appendChild(createJobElement(job)));
+  }
+
+  function createJobElement(job) {
+    const labels = { queued: "排队中", running: "分析中", completed: "已完成", failed: "失败" };
+    const element = document.createElement("button");
+    element.type = "button";
+    element.className = "job-row";
+    element.dataset.jobId = job.id;
+    element.disabled = !job.result_id;
+    element.innerHTML =
+      '<span class="job-status status-' + escapeHtml(job.status) + '">' + (labels[job.status] || job.status) + '</span>' +
+      '<span class="job-url">' + escapeHtml(job.url) + '</span>' +
+      '<span class="job-time">' + formatTime(job.updated_at) + '</span>';
+    if (job.result_id) {
+      element.addEventListener("click", async () => {
+        const response = await fetch("/api/history/" + encodeURIComponent(job.result_id));
+        if (response.ok) renderResult(await response.json());
+      });
+    }
+    return element;
   }
 
   // ====== History ======
@@ -229,8 +294,9 @@
           '<span class="history-sentiment"><span class="history-sentiment-dot" style="background:' + dotColor + '"></span>' + label + ' ' + (item.sentiment_score * 100).toFixed(0) + '%</span>' +
           '<span>' + formatTime(item.fetched_at) + '</span>' +
         '</div>';
-      el.addEventListener("click", () => {
-        urlInput.value = item.url;
+      el.addEventListener("click", async () => {
+        const response = await fetch("/api/history/" + encodeURIComponent(item.id));
+        if (response.ok) renderResult(await response.json());
         closeHistoryPanel();
       });
       historyList.appendChild(el);
@@ -284,7 +350,7 @@
   const settingsPanel = $("#settingsPanel");
   const settingsOverlay = $("#settingsOverlay");
   const closeSettingsBtn = $("#closeSettings");
-  const saveSettingsBtn = $("#saveSettings");
+  const settingsForm = $("#settingsForm");
   const settingProvider = $("#settingProvider");
   const settingApiKey = $("#settingApiKey");
   const settingBaseUrl = $("#settingBaseUrl");
@@ -332,7 +398,8 @@
   });
 
   // 保存设置
-  saveSettingsBtn.addEventListener("click", async function () {
+  settingsForm.addEventListener("submit", async function (event) {
+    event.preventDefault();
     const body = {};
     if (settingApiKey.value.trim()) body.llm_api_key = settingApiKey.value.trim();
     body.llm_provider = settingProvider.value;
@@ -370,4 +437,5 @@
 
   // 初始加载历史
   loadHistory();
+  loadJobs();
 })();

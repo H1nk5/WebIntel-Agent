@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi import Response
 from backend.api.routes import router
 from backend.config import settings
 
@@ -48,6 +49,11 @@ async def serve_index():
     if os.path.exists(index_path):
         return FileResponse(index_path)
     return {"message": "WebIntel-Agent API v2.0", "docs": "/docs"}
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return Response(status_code=204)
 
 
 if __name__ == "__main__":

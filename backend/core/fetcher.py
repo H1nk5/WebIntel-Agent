@@ -73,13 +73,16 @@ async def smart_fetch(url: str, timeout: int = 20) -> FetchResult:
     智能抓取：先尝试 httpx，若内容过少则回退到 Playwright
     """
     # 第一步：httpx 快速抓取
+    http_result = None
+    http_error = None
     try:
-        result = await fetch_with_httpx(url, timeout=timeout)
-        if result.content_length > 100:
-            logger.info(f"[httpx] 成功抓取 {url}，内容长度: {result.content_length}")
-            return result
-        logger.info(f"[httpx] 内容过少 ({result.content_length} chars)，回退到 Playwright")
+        http_result = await fetch_with_httpx(url, timeout=timeout)
+        if http_result.content_length > 100:
+            logger.info(f"[httpx] 成功抓取 {url}，内容长度: {http_result.content_length}")
+            return http_result
+        logger.info(f"[httpx] 内容过少 ({http_result.content_length} chars)，回退到 Playwright")
     except Exception as e:
+        http_error = e
         logger.info(f"[httpx] 抓取失败: {e}，回退到 Playwright")
 
     # 第二步：Playwright 抓取 SPA
@@ -88,7 +91,15 @@ async def smart_fetch(url: str, timeout: int = 20) -> FetchResult:
         logger.info(f"[playwright] 成功抓取 {url}，内容长度: {result.content_length}")
         return result
     except Exception as e:
-        raise RuntimeError(f"两种抓取方式均失败。httpx 首先失败，playwright 错误: {e}")
+        if http_result is not None and http_result.content_length >= 10:
+            logger.warning(
+                "[playwright] 回退失败，使用已抓取的静态内容 (%s chars): %s",
+                http_result.content_length,
+                e,
+            )
+            return http_result
+        http_reason = str(http_error) if http_error else "静态内容不足"
+        raise RuntimeError(f"两种抓取方式均失败。httpx: {http_reason}; playwright: {e}")
 
 
 def _extract_content(html: str) -> tuple[str, str]:
@@ -103,8 +114,8 @@ def _extract_content(html: str) -> tuple[str, str]:
     if soup.title and soup.title.string:
         title = soup.title.string.strip()
 
-    # 优先级：article > main > body
-    main = soup.find("article") or soup.find("main") or soup.find("body")
+    # 页面级 main 优先，避免只提取 main 内的第一张 article 卡片。
+    main = soup.find("main") or soup.find("article") or soup.find("body")
     if main:
         text = main.get_text(separator="\n", strip=True)
     else:

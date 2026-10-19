@@ -4,6 +4,7 @@ WebIntel-Agent 配置管理
 """
 
 from pydantic_settings import BaseSettings
+from pathlib import Path
 
 
 class Settings(BaseSettings):
@@ -27,6 +28,11 @@ class Settings(BaseSettings):
 
     # 历史记录最大条数
     history_max_size: int = 100
+    data_dir: str = "data"
+
+    @property
+    def database_path(self) -> Path:
+        return Path(self.data_dir) / "webintel.sqlite3"
 
     @property
     def cors_origin_list(self) -> list[str]:

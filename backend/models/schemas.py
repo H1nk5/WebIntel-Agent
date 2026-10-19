@@ -6,6 +6,7 @@ Pydantic 严格输出 Schema
 from pydantic import BaseModel, Field
 from datetime import datetime
 from enum import Enum
+from typing import Optional
 
 
 class SentimentLevel(str, Enum):
@@ -59,6 +60,29 @@ class AnalyzeResponse(BaseModel):
     analysis: AnalyzeResult
     fetched_at: str = Field(default_factory=lambda: datetime.now().isoformat())
     status: str = "success"
+    analysis_id: Optional[str] = None
+
+
+class JobRequest(BaseModel):
+    url: str = Field(..., min_length=1, description="目标网页 URL")
+
+
+class JobStatus(str, Enum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class JobResponse(BaseModel):
+    id: str
+    url: str
+    status: JobStatus
+    result_id: Optional[str] = None
+    error: Optional[str] = None
+    created_at: str
+    updated_at: str
+    result: Optional[dict] = None
 
 
 class ErrorResponse(BaseModel):

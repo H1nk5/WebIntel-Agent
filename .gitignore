@@ -24,6 +24,7 @@ Thumbs.db
 # Playwright
 playwright-report/
 test-results/
+.playwright-cli/
 
 # Audit
 audit_report.json
@@ -33,3 +34,4 @@ audit_report.json
 
 # Misc
 *.log
+data/

@@ -4,27 +4,27 @@ API 路由定义
 
 import logging
 from datetime import datetime
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 from backend.models.schemas import (
     AnalyzeRequest, AnalyzeResponse, ErrorResponse, HealthResponse,
-    AnalyzeResult,
+    AnalyzeResult, JobRequest, JobResponse,
 )
 from backend.core.fetcher import smart_fetch, detect_page_type
 from backend.core.analyzer import analyze_content, mock_analyze
 from backend.config import settings
+from backend.store import IntelStore
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api")
 
-# 内存历史记录
-_history: list[dict] = []
+store = IntelStore(settings.database_path, settings.history_max_size)
 
 
-def _add_history(entry: dict):
-    """添加历史记录（环形缓冲）"""
-    _history.insert(0, entry)
-    if len(_history) > settings.history_max_size:
-        _history.pop()
+def normalize_url(raw_url):
+    url = raw_url.strip()
+    if not url:
+        raise HTTPException(status_code=422, detail="URL 不能为空")
+    return url if url.startswith(("http://", "https://")) else "https://" + url
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -44,11 +44,10 @@ async def health_check():
 )
 async def analyze_url(request: AnalyzeRequest):
     """分析指定 URL 的网页内容"""
-    url = request.url.strip()
-    if not url:
-        raise HTTPException(status_code=422, detail="URL 不能为空")
-    if not url.startswith(("http://", "https://")):
-        url = "https://" + url
+    return await run_analysis(normalize_url(request.url))
+
+
+async def run_analysis(url):
 
     # 1. 抓取网页
     try:
@@ -88,27 +87,61 @@ async def analyze_url(request: AnalyzeRequest):
     )
 
     # 5. 记录历史
-    _add_history({
-        "url": response.url,
-        "title": response.title,
-        "sentiment_label": analysis.sentiment_label.value,
-        "sentiment_score": analysis.sentiment_score,
-        "fetched_at": response.fetched_at,
-    })
+    response.analysis_id = store.save_analysis(response)
 
     return response
+
+
+async def process_job(job_id, url):
+    store.update_job(job_id, "running")
+    try:
+        result = await run_analysis(url)
+        store.update_job(job_id, "completed", result_id=result.analysis_id)
+    except Exception as error:
+        logger.exception("后台分析任务失败")
+        store.update_job(job_id, "failed", error=str(error)[:500])
+
+
+@router.post("/jobs", response_model=JobResponse, status_code=202)
+async def create_job(request: JobRequest, background_tasks: BackgroundTasks):
+    url = normalize_url(request.url)
+    job = store.create_job(url)
+    background_tasks.add_task(process_job, job["id"], url)
+    return job
+
+
+@router.get("/jobs")
+async def get_jobs(limit: int = 20):
+    return {"jobs": store.list_jobs(limit)}
+
+
+@router.get("/jobs/{job_id}", response_model=JobResponse)
+async def get_job(job_id: str):
+    job = store.get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    return job
 
 
 @router.get("/history")
 async def get_history(limit: int = 20):
     """获取分析历史"""
-    return {"history": _history[:limit], "total": len(_history)}
+    history, total = store.list_history(limit)
+    return {"history": history, "total": total}
+
+
+@router.get("/history/{analysis_id}", response_model=AnalyzeResponse)
+async def get_history_item(analysis_id: str):
+    result = store.get_analysis(analysis_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="分析记录不存在")
+    return result
 
 
 @router.delete("/history")
 async def clear_history():
     """清空历史"""
-    _history.clear()
+    store.clear_history()
     return {"status": "cleared"}
 
 

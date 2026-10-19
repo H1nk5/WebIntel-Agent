@@ -179,6 +179,63 @@ body {
 /* --- Input Section --- */
 .input-section { margin-bottom: 2rem; }
 
+.jobs-section {
+  margin-bottom: 2rem;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 1rem 0;
+}
+
+.section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.section-heading h2 { font-size: 1rem; font-weight: 600; }
+.section-kicker {
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.jobs-count { color: var(--text-tertiary); font-size: 0.75rem; }
+.jobs-list { display: grid; gap: 0.4rem; }
+.jobs-empty { color: var(--text-tertiary); font-size: 0.8125rem; padding: 0.5rem 0; }
+.job-row {
+  min-height: 44px;
+  display: grid;
+  grid-template-columns: 5rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  text-align: left;
+  font: inherit;
+  transition: border-color var(--transition), background var(--transition);
+}
+.job-row:not(:disabled) { cursor: pointer; }
+.job-row:not(:disabled):hover { border-color: var(--border-focus); background: var(--bg-card); }
+.job-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.job-row:disabled { opacity: 0.78; }
+.job-status { font-size: 0.75rem; font-weight: 600; }
+.status-queued { color: var(--neutral); }
+.status-running { color: var(--accent); }
+.status-completed { color: var(--positive); }
+.status-failed { color: var(--negative); }
+.job-url { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.8125rem; }
+.job-time { color: var(--text-tertiary); font-size: 0.75rem; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 600px) {
+  .job-row { grid-template-columns: 4.5rem minmax(0, 1fr); }
+  .job-time { display: none; }
+}
+
 .input-wrapper {
   display: flex;
   align-items: center;

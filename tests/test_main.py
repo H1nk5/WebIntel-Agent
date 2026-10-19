@@ -3,14 +3,19 @@ WebIntel-Agent v2.0 测试套件
 覆盖：抓取器、分析器、API 端点、错误处理
 """
 
+import asyncio
 import pytest
+import tempfile
+from pathlib import Path
 from unittest.mock import AsyncMock, patch, MagicMock
 from fastapi.testclient import TestClient
 from backend.main import app
 from backend.config import Settings
-from backend.core.fetcher import _extract_content, detect_page_type, FetchResult
+from backend.core.fetcher import _extract_content, detect_page_type, FetchResult, smart_fetch
 from backend.core.analyzer import mock_analyze, _parse_llm_response, _to_result
 from backend.models.schemas import AnalyzeResult, SentimentLevel
+from backend.models.schemas import AnalyzeResponse
+from backend.store import IntelStore
 
 client = TestClient(app)
 
@@ -39,6 +44,33 @@ class TestExtractContent:
         html = "<html><body><p>A</p>\n\n\n\n\n<p>B</p></body></html>"
         _, text = _extract_content(html)
         assert "\n\n\n" not in text
+
+    def test_main_content_is_not_reduced_to_first_nested_article(self):
+        html = """
+        <html><body><main>
+          <article>第一张卡片</article>
+          <section>页面的核心说明</section>
+        </main></body></html>
+        """
+        _, text = _extract_content(html)
+        assert "第一张卡片" in text
+        assert "页面的核心说明" in text
+
+    def test_uses_short_static_content_when_browser_fallback_is_unavailable(self):
+        static_result = FetchResult(
+            url="https://example.com",
+            title="静态页面",
+            text="这段静态正文长度足够进行基础分析。",
+            html="<html><body>静态正文</body></html>",
+            method="httpx",
+        )
+        with patch("backend.core.fetcher.fetch_with_httpx", new_callable=AsyncMock) as http_fetch, \
+             patch("backend.core.fetcher.fetch_with_playwright", new_callable=AsyncMock) as browser_fetch:
+            http_fetch.return_value = static_result
+            browser_fetch.side_effect = RuntimeError("browser unavailable")
+            result = asyncio.run(smart_fetch(static_result.url))
+
+        assert result is static_result
 
 
 # ============== 页面类型检测 ==============
@@ -185,6 +217,48 @@ class TestHistoryEndpoint:
         res = client.delete("/api/history")
         assert res.status_code == 200
         assert res.json()["status"] == "cleared"
+
+
+class TestPersistentStore:
+    def test_analysis_survives_store_reopen(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "intel.sqlite3"
+            first = IntelStore(path, history_limit=10)
+            result = AnalyzeResponse(
+                url="https://example.com",
+                title="示例",
+                page_type="article",
+                content_length=120,
+                analysis=mock_analyze("示例", "行业创新增长趋势明显"),
+                fetched_at="2026-10-19T00:00:00+00:00",
+            )
+            analysis_id = first.save_analysis(result)
+            reopened = IntelStore(path, history_limit=10)
+            saved = reopened.get_analysis(analysis_id)
+            assert saved["title"] == "示例"
+            assert saved["analysis_id"] == analysis_id
+
+
+class TestJobEndpoint:
+    @patch("backend.api.routes.smart_fetch", new_callable=AsyncMock)
+    def test_job_persists_result_and_history_can_reopen_it(self, mock_fetch):
+        mock_fetch.return_value = FetchResult(
+            url="https://example.com/jobs",
+            title="任务结果",
+            text="人工智能行业创新增长趋势明显，适合形成结构化分析。",
+            html="<html><body>industry news</body></html>",
+            method="httpx",
+        )
+        created = client.post("/api/jobs", json={"url": "https://example.com/jobs"})
+        assert created.status_code == 202
+        job = client.get("/api/jobs/" + created.json()["id"])
+        assert job.status_code == 200
+        assert job.json()["status"] == "completed"
+        assert job.json()["result"]["title"] == "任务结果"
+        result_id = job.json()["result_id"]
+        reopened = client.get("/api/history/" + result_id)
+        assert reopened.status_code == 200
+        assert reopened.json()["analysis_id"] == result_id
 
 
 class TestIndexPage:

@@ -5,9 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>WebIntel-Agent</title>
   <link rel="stylesheet" href="/static/style.css">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
   <div class="app">
@@ -18,12 +15,12 @@
         <span class="nav-title">WebIntel</span>
       </div>
       <div class="nav-actions">
-        <button id="settingsToggle" class="nav-btn" title="设置">
+        <button id="settingsToggle" class="nav-btn" title="设置" aria-label="打开 API 设置">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
           </svg>
         </button>
-        <button id="historyToggle" class="nav-btn" title="历史记录">
+        <button id="historyToggle" class="nav-btn" title="历史记录" aria-label="打开分析历史">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
           </svg>
@@ -68,6 +65,19 @@
             </button>
           </div>
         </form>
+      </section>
+
+      <section class="jobs-section" aria-labelledby="jobsTitle">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Persistent queue</p>
+            <h2 id="jobsTitle">分析任务</h2>
+          </div>
+          <span id="jobsCount" class="jobs-count">0 项</span>
+        </div>
+        <div id="jobsList" class="jobs-list">
+          <p class="jobs-empty">提交网址后，任务状态会保存在本机。</p>
+        </div>
       </section>
 
       <!-- 错误提示 -->
@@ -193,7 +203,7 @@
         <h3>分析历史</h3>
         <div class="history-actions">
           <button id="clearHistory" class="history-clear-btn" title="清空历史">清空</button>
-          <button id="closeHistory" class="history-close-btn">&times;</button>
+          <button id="closeHistory" class="history-close-btn" aria-label="关闭分析历史">&times;</button>
         </div>
       </div>
       <div id="historyList" class="history-list">
@@ -206,21 +216,21 @@
     <aside id="settingsPanel" class="settings-panel">
       <div class="settings-header">
         <h3>API 设置</h3>
-        <button id="closeSettings" class="history-close-btn">&times;</button>
+        <button id="closeSettings" class="history-close-btn" aria-label="关闭 API 设置">&times;</button>
       </div>
-      <div class="settings-body">
+      <form id="settingsForm" class="settings-body">
         <div class="setting-group">
-          <label class="setting-label">LLM 提供商</label>
+          <label class="setting-label" for="settingProvider">LLM 提供商</label>
           <select id="settingProvider" class="setting-select">
             <option value="deepseek">DeepSeek（推荐）</option>
             <option value="openai">OpenAI</option>
           </select>
         </div>
         <div class="setting-group">
-          <label class="setting-label">API Key</label>
+          <label class="setting-label" for="settingApiKey">API Key</label>
           <div class="setting-input-row">
-            <input id="settingApiKey" type="password" class="setting-input" placeholder="sk-...">
-            <button id="toggleKeyVisibility" class="setting-eye-btn" title="显示/隐藏">
+            <input id="settingApiKey" type="password" class="setting-input" placeholder="sk-..." autocomplete="off">
+            <button type="button" id="toggleKeyVisibility" class="setting-eye-btn" title="显示/隐藏" aria-label="显示或隐藏 API Key">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
               </svg>
@@ -229,21 +239,21 @@
           <div id="apiKeyStatus" class="setting-status">未配置</div>
         </div>
         <div class="setting-group">
-          <label class="setting-label">API 地址</label>
+          <label class="setting-label" for="settingBaseUrl">API 地址</label>
           <input id="settingBaseUrl" type="text" class="setting-input" placeholder="https://api.deepseek.com">
         </div>
         <div class="setting-group">
-          <label class="setting-label">模型名称</label>
+          <label class="setting-label" for="settingModel">模型名称</label>
           <input id="settingModel" type="text" class="setting-input" placeholder="deepseek-chat">
         </div>
         <div class="setting-presets">
           <span class="preset-label">快捷预设：</span>
-          <button class="preset-btn" data-provider="deepseek" data-url="https://api.deepseek.com" data-model="deepseek-chat">DeepSeek</button>
-          <button class="preset-btn" data-provider="openai" data-url="https://api.openai.com/v1" data-model="gpt-4o-mini">OpenAI</button>
+          <button type="button" class="preset-btn" data-provider="deepseek" data-url="https://api.deepseek.com" data-model="deepseek-chat">DeepSeek</button>
+          <button type="button" class="preset-btn" data-provider="openai" data-url="https://api.openai.com/v1" data-model="gpt-4o-mini">OpenAI</button>
         </div>
-        <button id="saveSettings" class="save-btn">保存配置</button>
+        <button type="submit" id="saveSettings" class="save-btn">保存配置</button>
         <div id="settingsMsg" class="settings-msg" hidden></div>
-      </div>
+      </form>
     </aside>
     <div id="settingsOverlay" class="history-overlay" hidden></div>
   </div>
