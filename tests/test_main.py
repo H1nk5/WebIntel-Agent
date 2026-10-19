@@ -7,6 +7,7 @@ import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 from fastapi.testclient import TestClient
 from backend.main import app
+from backend.config import Settings
 from backend.core.fetcher import _extract_content, detect_page_type, FetchResult
 from backend.core.analyzer import mock_analyze, _parse_llm_response, _to_result
 from backend.models.schemas import AnalyzeResult, SentimentLevel
@@ -107,6 +108,17 @@ class TestHealthEndpoint:
         assert data["status"] == "ok"
         assert data["version"] == "2.0.0"
         assert "llm_configured" in data
+
+    def test_cors_only_allows_configured_local_origin(self):
+        allowed = client.get("/api/health", headers={"Origin": "http://localhost:8000"})
+        assert allowed.headers["access-control-allow-origin"] == "http://localhost:8000"
+        denied = client.get("/api/health", headers={"Origin": "https://example.test"})
+        assert "access-control-allow-origin" not in denied.headers
+
+    def test_service_defaults_to_loopback_and_explicit_origins(self):
+        local = Settings(_env_file=None)
+        assert local.host == "127.0.0.1"
+        assert "*" not in local.cors_origin_list
 
 
 class TestAnalyzeEndpoint:

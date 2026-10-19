@@ -20,12 +20,19 @@ class Settings(BaseSettings):
     fetch_max_content_length: int = 50000
 
     # 服务配置
-    host: str = "0.0.0.0"
+    host: str = "127.0.0.1"
     port: int = 8000
-    debug: bool = True
+    debug: bool = False
+    cors_origins: str = "http://127.0.0.1:8000,http://localhost:8000"
 
     # 历史记录最大条数
     history_max_size: int = 100
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return list(dict.fromkeys(
+            origin.strip() for origin in self.cors_origins.split(",") if origin.strip()
+        ))
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
